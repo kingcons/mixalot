@@ -90,6 +90,7 @@
 (define-format-type SF_FORMAT_SD2                    #x160000)               ; Sound Designer 2 
 (define-format-type SF_FORMAT_FLAC                   #x170000)               ; FLAC lossless file format 
 (define-format-type SF_FORMAT_CAF                    #x180000)               ; Core Audio File format 
+(define-format-type SF_FORMAT_OGG                    #x200000)               ; Xiph OGG container
 
 ;;;; Subtypes from here on. 
 
@@ -121,6 +122,8 @@
 
 (define-format-subtype SF_FORMAT_DPCM_8                 #x0050)                 ; 8 bit differential PCM (XI only)
 (define-format-subtype SF_FORMAT_DPCM_16                #x0051)                 ; 16 bit differential PCM (XI only)
+
+(define-format-subtype SF_FORMAT_VORBIS                 #x0060)                 ; Xiph Vorbis encoding
 
 (defun decode-bitflags (value flag-names)
   (loop for symbol in flag-names
@@ -274,6 +277,7 @@
 (defconstant SF_STR_ARTIST    4)
 (defconstant SF_STR_COMMENT   5)
 (defconstant SF_STR_DATE      6)
+(defconstant SF_STR_ALBUM     7)
 
 ;;;; Public error numbers
 (defconstant SF_ERR_NO_ERROR               0)
