@@ -148,14 +148,14 @@
           (fill buffer 0)
           (setf buffer-clear t))
         ;; Play the buffer.
-        #+mixalot::use-ao
+        #-linux
         (let ((ret
                (with-array-pointer (ptr buffer)
                  (ao-play (mixer-device mixer) ptr (* 4 buffer-samples)))))
           (when (zerop ret)
             (format *trace-output* "libao error.")))
 
-        #+mixalot::use-alsa
+        #+linux
         (loop with offset of-type mixer-buffer-index = 0
               as nwrite = (- buffer-samples offset)
               as nframes = (with-array-pointer (ptr buffer)
