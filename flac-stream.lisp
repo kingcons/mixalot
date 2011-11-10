@@ -26,23 +26,15 @@
   (:use :common-lisp :cffi :mixalot :flac)
   (:export #:flac-streamer
            #:make-flac-streamer
-           #:flac-sample-rate
            #:flac-streamer-release-resources))
 
 (in-package :mixalot-flac)
 
-(defclass flac-streamer ()
-  ((handle      :reader flac-handle :initarg :handle)
-   (sample-rate :reader flac-sample-rate :initarg :sample-rate)
-   (output-rate :reader flac-output-rate :initarg :output-rate)
-   (filename  :initform nil :initarg :filename)
-   (buffer    :initform nil :accessor buffer)
+(defclass flac-streamer (streamer)
+  ((buffer    :initform nil :accessor buffer)
    (channels :initform nil :reader flac-channels)
    (min-buffer-length :initform 0)
-   (buffer-position :initform 0 :accessor buffer-pos)
-   (length    :initform nil)
-   (position  :initform 0)
-   (seek-to   :initform nil)))
+   (buffer-position :initform 0 :accessor buffer-pos)))
 
 ;;;; Callbacks
 
@@ -189,20 +181,10 @@
   (declare (ignore mixer))
   t)
 
-(defmethod streamer-length ((stream flac-streamer) mixer)
-  (declare (ignore mixer))
-  (with-slots (length) stream 
-    length))
-
-(defmethod streamer-seek ((stream flac-streamer) mixer position 
+(defmethod streamer-seek ((stream flac-streamer) mixer position
                           &key &allow-other-keys)
   (declare (ignore mixer))
-  (let ((sample-rate (flac-sample-rate stream)))
+  (let ((sample-rate (streamer-sample-rate stream)))
     (with-slots (seek-to output-rate) stream
       (setf seek-to (floor (* sample-rate position) output-rate)))
     (values)))
-
-(defmethod streamer-position ((stream flac-streamer) mixer)
-  (declare (ignore mixer))
-  (with-slots (position) stream
-    position))

@@ -26,20 +26,12 @@
   (:use :common-lisp :cffi :mixalot :mpg123)
   (:export #:mp3-streamer
            #:make-mp3-streamer
-           #:mp3-sample-rate
            #:mp3-streamer-release-resources))
 
 (in-package :mixalot-mp3)
 
-(defclass mp3-streamer ()
-  ((handle      :reader mpg123-handle :initarg :handle)
-   (sample-rate :reader mp3-sample-rate :initarg :sample-rate)
-   (output-rate :reader mp3-output-rate :initarg :output-rate)
-   (filename  :initform nil :initarg filename)
-   (buffer    :initform nil :accessor buffer)
-   (length    :initform nil)
-   (position  :initform 0)
-   (seek-to   :initform nil)))
+(defclass mp3-streamer (file-streamer)
+  ((buffer :initform nil :accessor buffer)))
 
 (defun open-mp3-file (filename &key (output-rate 44100) (prescan t))
   "Open an MP3 file from disk, forcing the output format to 16 bit,
@@ -122,7 +114,7 @@ the file cannot be opened or another error occurs."
   (update-for-seek streamer)
   (with-foreign-object (nread 'mpg123::size_t)
     (let* ((max-buffer-length  8192)
-           (handle (mpg123-handle streamer))
+           (handle (streamer-handle streamer))
            (read-buffer (or (buffer streamer)
                             (setf (buffer streamer)
                                   (make-array max-buffer-length
@@ -168,21 +160,12 @@ the file cannot be opened or another error occurs."
 (defmethod streamer-seekable-p ((stream mp3-streamer) mixer)
   (declare (ignore mixer))
   (with-slots (length stream) stream
-    (not (not length))))
+    (not (null length))))
 
-(defmethod streamer-length ((stream mp3-streamer) mixer)
-  (declare (ignore mixer))
-  (with-slots (length) stream 
-    length))
-
-(defmethod streamer-seek ((stream mp3-streamer) mixer position 
+(defmethod streamer-seek ((stream mp3-streamer) mixer position
                           &key &allow-other-keys)
   (declare (ignore mixer))
   (with-slots (seek-to sample-rate output-rate) stream
     (setf seek-to (floor (* sample-rate position) output-rate)))
   (values))
 
-(defmethod streamer-position ((stream mp3-streamer) mixer)
-  (declare (ignore mixer))
-  (with-slots (position) stream
-    position))

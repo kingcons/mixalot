@@ -1,22 +1,13 @@
-
 (defpackage :mixalot-vorbis
   (:use :common-lisp :cffi :mixalot :vorbisfile)
   (:export #:vorbis-streamer
            #:make-vorbis-streamer
-           #:vorbis-sample-rate
            #:vorbis-streamer-release-resources))
 
 (in-package :mixalot-vorbis)
 
-(defclass vorbis-streamer ()
-  ((handle      :reader vorbis-handle :initarg :handle)
-   (sample-rate :reader vorbis-sample-rate :initarg :sample-rate)
-   (output-rate :reader vorbis-output-rate :initarg :output-rate)
-   (filename  :initform nil :initarg filename)
-   (channels  :initform 0 :accessor channels :initarg :channels)
-   (length    :initform nil)
-   (position  :initform 0)
-   (seek-to   :initform nil)
+(defclass vorbis-streamer (streamer)
+  ((channels  :initform 0 :accessor channels :initarg :channels)
    (io-buffer      :initform nil :accessor io-buffer)
    (convert-buffer :initform nil :accessor convert-buffer)))
 
@@ -166,21 +157,11 @@
 
 (defmethod streamer-seekable-p ((stream vorbis-streamer) mixer)
   (declare (ignore mixer))
-  (ov-seekable (vorbis-handle stream)))
+  (ov-seekable (streamer-handle stream)))
 
-(defmethod streamer-length ((stream vorbis-streamer) mixer)
-  (declare (ignore mixer))
-  (with-slots (length) stream 
-    length))
-
-(defmethod streamer-seek ((stream vorbis-streamer) mixer position 
+(defmethod streamer-seek ((stream vorbis-streamer) mixer position
                           &key &allow-other-keys)
   (declare (ignore mixer))
   (with-slots (seek-to sample-rate output-rate) stream
     (setf seek-to (floor (* sample-rate position) output-rate)))
   (values))
-
-(defmethod streamer-position ((stream vorbis-streamer) mixer)
-  (declare (ignore mixer))
-  (with-slots (position) stream
-    position))
