@@ -19,6 +19,11 @@
            #:streamer-seek
            #:streamer-position
            #:streamer-note-completion
+           #:streamer-handle
+           #:streamer-sample-rate
+           #:streamer-output-rate
+           #:streamer-song
+           #:streamer-stopped
 
            ;; a bit uncomfortable with this but need it for all the with-slots
            ;; i.e. in mixalot-mp3, mixalot-vorbis, etc
