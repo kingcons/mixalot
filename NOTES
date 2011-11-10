@@ -1,0 +1,41 @@
+CLEANUPS:
+Streamer API
+MAKE-STREAMER
+STREAMER-CLEANUP
+STREAMER-PAUSED-P
+STREAMER-UNPAUSE
+STREAMER-PAUSE
+STREAMER-POSITION
+STREAMER-LENGTH
+STREAMER-SEEK
+
+All streamers should provide implementations for these GFs. Then shuffletron should only rely on that as an exported API.
+For shuffletron's purposes it is necessary to store and be able to access song-of and stopped info associated with each streamer. Currently there is a wrapper class that performs this action. Is there a reason these couldn't be part of a base-streamer class that also involved the ALL set of slots below?
+
+all:
+handle
+sample-rate
+output-rate
+filename
+length
+position
+seek-to
+
+mp3:
+buffer
+
+flac:
+buffer
+channels
+min-buffer-length
+buffer-position
+
+vorbis:
+channels
+io-buffer
+convert-buffer
+
+jukebox-streamer adds stopped and song-of slots.
+
+It'd be nice to not have 8 different fucking systems in mixalot. Ideally at the end of the day we'd have 3 or 4 ffi libraries on github and corresponding mixalot libs that depend on them. There shouldn't be an independent mixalot lib as opposed to mixalot-mp3, mixalot-ogg, mixalot-flac unless it's a mixalot-everything lib. Stop the monolithism!
+
