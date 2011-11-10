@@ -30,7 +30,7 @@
 
 (in-package :mixalot-mp3)
 
-(defclass mp3-streamer (file-streamer)
+(defclass mp3-streamer (streamer)
   ((buffer :initform nil :accessor buffer)))
 
 (defun open-mp3-file (filename &key (output-rate 44100) (prescan t))
@@ -85,12 +85,12 @@ the file cannot be opened or another error occurs."
       (open-mp3-file filename :output-rate output-rate :prescan prescan)
     (remf args :class)
     (remf args :prescan)
-    (let ((stream (apply #'make-instance 
+    (let ((stream (apply #'make-instance
                          class
-                         :handle handle                         
+                         :handle handle
                          :sample-rate sample-rate
                          :output-rate output-rate
-                         'filename filename
+                         :filename filename
                          args)))
       (with-slots (length handle) stream
         (let ((result (mpg123-length handle)))

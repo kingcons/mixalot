@@ -64,13 +64,13 @@
       (open-vorbis-file filename :output-rate output-rate :link link)
     (remf args :class)
     (remf args :link)
-    (let ((stream (apply #'make-instance 
+    (let ((stream (apply #'make-instance
                          class
-                         :handle handle                         
+                         :handle handle
                          :sample-rate sample-rate
                          :output-rate output-rate
                          :channels channels
-                         'filename filename
+                         :filename filename
                          args)))
       (with-slots (length handle) stream
         (let ((result (get-vorbis-length handle :link link)))
