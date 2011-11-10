@@ -49,6 +49,7 @@
 
 (defmethod streamer-cleanup ((stream vorbis-streamer) mixer)
   (declare (ignore mixer))
+  (call-next-method)
   (vorbis-streamer-release-resources stream))
 
 (defun make-vorbis-streamer

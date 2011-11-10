@@ -171,6 +171,7 @@
 
 (defmethod streamer-cleanup ((stream flac-streamer) mixer)
   (declare (ignore mixer))
+  (call-next-method)
   (flac-streamer-release-resources stream))
 
 ;;; Seek protocol

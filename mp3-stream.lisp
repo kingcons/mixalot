@@ -70,11 +70,12 @@ mpg123_handle pointer if successful."
 
 (defmethod streamer-cleanup ((stream mp3-streamer) mixer)
   (declare (ignore mixer))
+  (call-next-method)
   (mp3-streamer-release-resources stream))
 
 (defun make-mp3-streamer
-    (filename &rest args 
-     &key 
+    (filename &rest args
+     &key
      (output-rate 44100)
      (class 'mp3-streamer)
      (prescan t)
