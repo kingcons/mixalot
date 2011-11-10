@@ -312,6 +312,18 @@
 
 ;;;; Basic stream protocol
 
+(defclass streamer ()
+  ((handle :reader streamer-handle :initarg :handle)
+   (sample-rate :reader streamer-sample-rate :initarg :sample-rate)
+   (output-rate :reader streamer-output-rate :initarg :output-rate)
+   (length :reader streamer-length :initform nil)
+   (position :reader streamer-position :initform 0)
+   (song :accessor streamer-song :initarg :song)
+   (stopped :accessor streamer-stopped-p :initform nil)
+   (filename :initform nil :initarg :filename)
+   (seek-to :initform nil))
+  (:documentation "YEAHHHHHHH (file streamer)"))
+
 (defgeneric streamer-mix-into (stream mixer buffer offset length time)
   (:documentation
    "Mix 'length' samples of stream output into buffer starting at 'offset'
@@ -375,21 +387,17 @@
     (declare (ignore stream mixer))
     nil))
 
-(defgeneric streamer-length (stream mixer)
+(defgeneric streamer-length (stream)
   (:documentation "Returns length, in samples, of the audio stream, or
   NIL if it cannot be determined.")
-  (:method (stream mixer)
-    (declare (ignore stream mixer))
-    nil))
+  (:method (stream) nil))
+
+(defgeneric streamer-position (stream)
+  (:documentation "Returns current position within a seekable stream.")
+  (:method (stream) nil))
 
 (defgeneric streamer-seek (stream mixer position &key &allow-other-keys)
   (:documentation "Seek to position (measured in samples) from the start of stream."))
-
-(defgeneric streamer-position (stream mixer)
-  (:documentation "Returns current position within a seekable stream.")
-  (:method (stream mixer)
-    (declare (ignore stream mixer))
-    nil))
 
 
 ;;;; Mixer process
