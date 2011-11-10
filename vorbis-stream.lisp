@@ -52,8 +52,8 @@
   (vorbis-streamer-release-resources stream))
 
 (defun make-vorbis-streamer
-    (filename &rest args 
-     &key 
+    (filename &rest args
+     &key
      (output-rate 44100)
      (class 'vorbis-streamer)
      (link 0)
@@ -80,7 +80,7 @@
 
 (defun update-for-seek (stream)
   (with-slots (handle seek-to position output-rate sample-rate) stream
-    (when seek-to 
+    (when seek-to
       (vorbis-seek handle seek-to)
      (setf seek-to nil
            position (floor (* output-rate (get-vorbis-position handle))
@@ -90,11 +90,11 @@
   (declare (ignorable time)
            (optimize (speed 1) (debug 3))
            (type array-index offset length)
-           (type sample-vector mix-buffer))  
+           (type sample-vector mix-buffer))
   (update-for-seek streamer)
   (with-foreign-object (bitstream :int)
     (let* ((max-buffer-length 8192)
-           (handle (vorbis-handle streamer))
+           (handle (streamer-handle streamer))
            (channels (channels streamer))
            (frame-size (* 2 channels))
            (read-buffer (or (io-buffer streamer)
@@ -107,7 +107,7 @@
                                (setf (convert-buffer streamer)
                                      (if (eql channels 2)
                                          read-buffer
-                                         (make-array max-buffer-length 
+                                         (make-array max-buffer-length
                                                      :element-type 'stereo-sample))))))
       #+NIL
       (format *trace-output* "~&  streamer-mix-into vorbis-streamer offset=~A length=~A time=~A channels=~A~%"
@@ -119,24 +119,24 @@
               with nread = 0
               with samples-read = 0
               with chunk-size = 0
-              while (< output-index end-output-index) do 
+              while (< output-index end-output-index) do
               (assert (not (zerop frame-size)))
               (setf chunk-size (min max-buffer-length (- end-output-index output-index))
                     nread (ov-read handle bufptr (* frame-size chunk-size) 0 2 1 bitstream)
                     samples-read (the array-index (/ nread frame-size)))
 
               (when (<= nread 0) (loop-finish))
-              
+
               ;; Convert mono
               (when (eql 1 channels)
                 (loop for index from 0 below samples-read
-                   do (setf (aref convert-buffer index) 
+                   do (setf (aref convert-buffer index)
                             (mixalot:mono->stereo (aref read-buffer index)))))
-              ;; Mix into buffer 
+              ;; Mix into buffer
               (loop for out-idx upfrom (the array-index output-index)
                     for in-idx upfrom 0
                     repeat samples-read
-                    do (stereo-mixf (aref mix-buffer out-idx) 
+                    do (stereo-mixf (aref mix-buffer out-idx)
                                     (aref convert-buffer in-idx)))
               (incf output-index samples-read)
               (incf (slot-value streamer 'position) samples-read)
@@ -146,8 +146,8 @@
                 ((zerop nread) ; End of stream.
                  (mixer-remove-streamer mixer streamer))
                 ((< nread 0)  ; Other error?
-                 (format *trace-output* "~&~A (~A): error ~A: ~A~%" 
-                         streamer 
+                 (format *trace-output* "~&~A (~A): error ~A: ~A~%"
+                         streamer
                          (slot-value streamer 'filename)
                          nread
                          (vorbis-strerror nread ))
