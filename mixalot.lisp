@@ -6,7 +6,7 @@
 ;;;; a copy of this software and associated documentation files (the
 ;;;; "Software"), to deal in the Software without restriction, including
 ;;;; without limitation the rights to use, copy, modify, merge, publish,
-;;;; distribute, sublicense, and/or sellcopies of the Software, and to 
+;;;; distribute, sublicense, and/or sellcopies of the Software, and to
 ;;;; permit persons to whom the Software is furnished to do so, subject
 ;;;;  to the following conditions:
 
@@ -22,49 +22,6 @@
 ;;;; FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 ;;;; OTHER DEALINGS IN THE SOFTWARE.
 
-(defpackage :mixalot
-  (:use :common-lisp :cffi :bordeaux-threads :mixalot-ffi-common)
-  (:export #:alsa-error
-           #:main-thread-init
-
-           #:sample-vector
-           #:stereo-sample
-           #:mono-sample
-
-           #:streamer
-           #:streamer-mix-into
-           #:streamer-write-into
-           #:streamer-cleanup
-           #:streamer-pause
-           #:streamer-unpause
-           #:streamer-paused-p
-           #:streamer-seekable-p
-           #:streamer-length
-           #:streamer-seek
-           #:streamer-position
-           #:streamer-note-completion
-
-           #:mixer
-           #:mixer-stream-lock
-           #:mixer-stream-list
-           #:mixer-current-time
-           #:mixer-rate
-           #:mixer-shutdown-flag
-           #:mixer-add-streamer
-           #:mixer-remove-streamer
-           #:mixer-remove-all-streamers
-           #:create-mixer
-           #:destroy-mixer
-           #:array-index
-           #:with-array-pointer
-           #:clamp-sample #:clamp-sample+
-           #:mono->stereo #:stereo-left #:stereo-right
-           #:%stereo-left #:%stereo-right
-           #:split-sample
-           #:mix-stereo-samples #:add-stereo-samples
-           #:stereo-incf #:stereo-mixf
-           #:make-test-streamer))
-
 (in-package :mixalot)
 
 (eval-when (:compile-toplevel)
@@ -77,8 +34,8 @@
 
 (deftype stereo-sample () '(unsigned-byte 32))
 
-(deftype mono-sample () 
-  '(or 
+(deftype mono-sample ()
+  '(or
     (signed-byte 16)
     (unsigned-byte 16)))
 
@@ -109,7 +66,7 @@
 #+mixalot::use-alsa
 (defun check-error (circumstance result)
   (unless (zerop result)
-    (error 'alsa-error 
+    (error 'alsa-error
            :text (format nil "~A: ~A" circumstance (snd-strerror result)))))
 
 #+mixalot::use-alsa
@@ -142,11 +99,11 @@
     (validate-pointer (mem-ref pcm 'snd-pcm))))
 
 #+mixalot::use-alsa
-(defcfun snd-pcm-close :int 
+(defcfun snd-pcm-close :int
   (pcm snd-pcm))
 
 #+mixalot::use-alsa
-(defcenum snd-pcm-format 
+(defcenum snd-pcm-format
   (:snd-pcm-format-s16-le 2))
 
 #+mixalot::use-alsa
@@ -188,7 +145,7 @@
   (close   :int))
 
 #+mixalot::use-alsa
-(defcfun snd-pcm-dump :int 
+(defcfun snd-pcm-dump :int
   (pcm snd-pcm)
   (out snd-output))
 
@@ -214,7 +171,7 @@
 #+mixalot::use-alsa
 (defun call-with-pcm (rate continuation)
   (let ((pcm (snd-pcm-open "default" :playback :blocking)))
-    (unwind-protect 
+    (unwind-protect
          (progn
            (check-error
             "PCM set parameters"
@@ -224,7 +181,7 @@
            (funcall continuation pcm))
       (snd-pcm-close pcm))))
 
-;;;; Alternate interface using libao on OS X. 
+;;;; Alternate interface using libao on OS X.
 
 ;;; This isn't ideal. You're forced to initialize the audio system
 ;;; (and thus the mixer) from the "main thread", due to OS X being a
@@ -279,7 +236,7 @@
            (ao-fmt-channels fmt) 2
            (ao-fmt-rate fmt) rate
            (ao-fmt-byte-format fmt) AO_FMT_LITTLE
-           (ao-fmt-matrix fmt) matrix) 
+           (ao-fmt-matrix fmt) matrix)
     (ao-open-live (ao-default-driver-id)
                    fmt
                    (null-pointer)))))
@@ -297,311 +254,10 @@
   (num-bytes :uint32))
 
 
-;;;; Basic stream protocol
-
-(defclass streamer ()
-  ((handle :reader streamer-handle :initarg :handle)
-   (sample-rate :reader streamer-sample-rate :initarg :sample-rate)
-   (output-rate :reader streamer-output-rate :initarg :output-rate)
-   (length :reader streamer-length :initform nil)
-   (position :reader streamer-position :initform 0)
-   (song :accessor streamer-song :initarg :song)
-   (stopped :accessor streamer-stopped-p :initform nil)
-   (filename :initform nil :initarg :filename)
-   (seek-to :initform nil))
-  (:documentation "YEAHHHHHHH (file streamer)"))
-
-(defgeneric streamer-mix-into (stream mixer buffer offset length time)
-  (:documentation
-   "Mix 'length' samples of stream output into buffer starting at 'offset'
- measured in samples, at 'time' (measured in samples since the mixer was
- created. The time measurement includes the offset, and is intended for
- synchronizing streams. Called from outside the mixer lock.")
-  (:method ((stream function) mixer buffer offset length time)
-    (funcall stream stream mixer buffer offset length time)))
-
-(defgeneric streamer-write-into (stream mixer buffer offset length time)
-  (:documentation
-   "Write 'length' samples of stream output into buffer starting at
-   'offset' (measured in samples), at 'time' (measured in samples
-   since the mixer was created. The time measurement includes the
-   offset, and is intended for synchronizing streams. The differs from
-   stream-write-info in that you don't have to mix the data, the
-   current contents are expected to be garbage and can be
-   overwritten. Implementing this is optional. Called from outside the
-   mixer lock.")
-  (:method (stream mixer buffer offset length time)
-    (declare (type sample-vector buffer)
-             (type array-index offset length)
-             (optimize (speed 3)))
-    (fill buffer 0 :start offset :end (+ offset length))
-    (streamer-mix-into stream mixer buffer offset length time)))
-
-(defgeneric streamer-cleanup (stream mixer)
-  (:documentation 
-  "Release resources and perform any other cleanups needed when a
-  streamer is destroyed as a result of a call to mixer-remove-streamer. 
-  Called outside the mixer lock, so it's okay to manipulate the mixer.")
-  (:method (stream mixer)
-    (declare (ignore stream mixer))))
-
-;;;; Pausing streams: The mixer handles pausing automatically.
-;;;; Streamers need not define methods on these functions, unless they
-;;;; have a reason to take action on pause/unpause.
-
-(defgeneric streamer-pause (stream mixer)
-  (:documentation "Pause playback of the streamer. A method on
-  streamer-pause is optional and serves as a notification to the
-  streamer that it has been paused; the default method is specialized
-  on the mixer and can suspend playback without any special support
-  from the streamer."))
-
-(defgeneric streamer-unpause (stream mixer)
-  (:documentation "Unpause playback of the streamer. A method on
-  streamer-unpause is optional and serves as a notification to the
-  streamer that it has been unpaused; the default method is
-  specialized on the mixer and can resume playback without any special
-  support from the streamer."))
-
-(defgeneric streamer-paused-p (stream mixer)
-  (:documentation "Query whether a stream is paused or not."))
-
-;;;; Optional: Seekable stream protocol
-
-(defgeneric streamer-seekable-p (stream mixer)
-  (:documentation "Returns non-NIL if the streamer supports seeking.")
-  (:method (stream mixer)
-    (declare (ignore stream mixer))
-    nil))
-
-(defgeneric streamer-length (stream)
-  (:documentation "Returns length, in samples, of the audio stream, or
-  NIL if it cannot be determined.")
-  (:method (stream) nil))
-
-(defgeneric streamer-position (stream)
-  (:documentation "Returns current position within a seekable stream.")
-  (:method (stream) nil))
-
-(defgeneric streamer-seek (stream mixer position &key &allow-other-keys)
-  (:documentation "Seek to position (measured in samples) from the start of stream."))
-
-
-;;;; Mixer process
-
-;;; The mixer contains zero or more streamers and pumps samples from
-;;; them to mix and send to the audio card. Streamers can be added and
-;;; removed at (almost) any time.
-
-;;; Another reasonable design would be that you connect a single
-;;; stream to the audio device, and a mixer is just another type of
-;;; stream. This would solve some problems for a certain kind of app,
-;;; but I haven't pursued simply because I didn't think of it soon
-;;; enough, and changing to that approach if/when I have use for it
-;;; shouldn't break the API incompatibly.
-
-(defstruct mixer 
-  (stream-lock (bordeaux-threads:make-lock "Mixer lock"))
-  (stream-list  nil)
-  (current-time 0)
-  (rate         44100)
-  (shutdown-flag nil)
-  (stream-state (make-hash-table))
-  device)
-
-(defmacro with-mixer-lock ((mixer) &body body)
-  `(with-lock-held ((mixer-stream-lock ,mixer))
-    ,@body))
-
-(defun mixer-add-streamer (mixer streamer)
-  (with-mixer-lock (mixer)
-    (cond
-      ((mixer-shutdown-flag mixer)
-       (error "You can't add a stream to a shutdown mixer!"))
-      (t (push streamer (mixer-stream-list mixer))
-         (values streamer (mixer-current-time mixer))))))
-
-(defun %req-remove-streamer (mixer streamer)
-  (setf (gethash streamer (mixer-stream-state mixer)) :remove))
-
-(defun mixer-remove-streamer (mixer streamer)
-  (with-mixer-lock (mixer)
-    (%req-remove-streamer mixer streamer))
-  (values))
-
-(defun mixer-remove-all-streamers (mixer)
-  (with-mixer-lock (mixer)
-    (dolist (streamer (mixer-stream-list mixer))
-      (%req-remove-streamer mixer streamer))))      
-
-;;; Obtaining a pointer to an array of unboxed data. I used to do this
-;;; myself, but recentish CFFI can do it for me.
-(defmacro with-array-pointer ((name array) &body body)
-  `(cffi-sys:with-pointer-to-vector-data (,name ,array) ,@body))
-
-#+NIL
-(defmacro with-array-pointer ((name array) &body body)
-  ;; Perhaps does the wrong thing for displaced arrays.
-  ;; This will never affect me.
-  ;; Also, SBCL gives a very bizarre code deletion warning here
-  ;; when compiling the file in SLIME which goes away when I 
-  ;; compile just the definition.
-  `((lambda (arrayoid body)
-      (unless (typep arrayoid 'vector)
-        (setf arrayoid (sb-kernel:%array-data-vector arrayoid)))
-      (sb-sys:with-pinned-objects (arrayoid)
-        (funcall body (sb-sys:vector-sap arrayoid))))
-    ,array
-    (lambda (,name) ,@body)))
-
-(defmethod streamer-pause (stream (mixer mixer))
-  (with-mixer-lock (mixer)
-    (when (find stream (mixer-stream-list mixer))
-      (setf (gethash stream (mixer-stream-state mixer)) :paused))))
-
-(defmethod streamer-unpause (stream (mixer mixer))
-  (with-mixer-lock (mixer)
-    (when (eql (gethash stream (mixer-stream-state mixer)) :paused)
-      (remhash stream (mixer-stream-state mixer)))))
-
-(defmethod streamer-paused-p (stream (mixer mixer))
-  (with-mixer-lock (mixer)
-    (eql (gethash stream (mixer-stream-state mixer)) :paused)))
-
-(defun update-playable (mixer playable-streams)
-  (with-mixer-lock (mixer)
-    (setf (fill-pointer playable-streams) 0)
-    (dolist (stream (mixer-stream-list mixer))
-      (let ((state (gethash stream (mixer-stream-state mixer))))
-        (unless (eql :paused state)
-          (vector-push-extend stream playable-streams))))))
-
-(defun remove-removable (mixer temp-vector)  
-  (with-mixer-lock (mixer)
-    (let ((state-table (mixer-stream-state mixer)))
-      (setf (fill-pointer temp-vector) 0
-            (mixer-stream-list mixer) 
-            (delete-if
-             (lambda (streamer)
-               (when (eql :remove (gethash streamer state-table))
-                 (vector-push-extend streamer temp-vector)
-                 (remhash streamer state-table)
-                 t))
-             (mixer-stream-list mixer)))))
-  ;; Run the cleanups outside the lock:
-  (loop for removed across temp-vector
-        do (streamer-cleanup removed mixer)))
-
-(defconstant +mixer-buffer-size+ 4096)
-(deftype mixer-buffer-index () `(integer 0 ,+mixer-buffer-size+))
-
-(defun run-mixer-process (mixer)
- (declare (optimize (speed 3)))
- (unwind-protect
-  ;; Body
-  (loop with time = 0
-        with buffer-samples = +mixer-buffer-size+
-        with buffer = (make-array buffer-samples :element-type '(unsigned-byte 32))
-        with playable-streams = (make-array 0 :adjustable t :fill-pointer 0)
-        with buffer-clear = nil
-        until (mixer-shutdown-flag mixer)
-        do
-        ;; So that we don't have to hold the lock during the stream
-        ;; callbacks, use this temporary vector:
-        (remove-removable mixer playable-streams)
-        (update-playable mixer playable-streams)
-        ;; Loop through playable streams and generate audio
-        (loop for streamer across playable-streams
-              for first = t then nil
-              as offset = 0             ; ...
-              do
-              (setf buffer-clear nil)
-              (restart-case
-                  (funcall (if first
-                               #'streamer-write-into
-                               #'streamer-mix-into)
-                           streamer
-                           mixer
-                           buffer
-                           offset
-                           (- buffer-samples offset)
-                           (+ time offset))
-                (remove-streamer ()
-                  :report "Delete this audio stream"
-                  (mixer-remove-streamer mixer streamer))))
-        ;; If there are no playable streams, we have to clear the buffer ourself.
-        (when (and (zerop (length playable-streams))
-                   (not buffer-clear))
-          (fill buffer 0)
-          (setf buffer-clear t))
-        ;; Play the buffer.
-        #+mixalot::use-ao        
-        (let ((ret 
-               (with-array-pointer (ptr buffer)
-                 (ao-play (mixer-device mixer) ptr (* 4 buffer-samples)))))
-          (when (zerop ret)
-            (format *trace-output* "libao error.")))
-
-        #+mixalot::use-alsa
-        (loop with offset of-type mixer-buffer-index = 0
-              as nwrite = (- buffer-samples offset)
-              as nframes = (with-array-pointer (ptr buffer)
-                             (incf-pointer ptr (* offset 4))
-                             (snd-pcm-writei (mixer-device mixer) ptr nwrite))
-              do
-              (unless (zerop offset)
-                (format t "~&mixer time ~A partial offset ~:D~%"
-                        (mixer-current-time mixer)
-                        offset))
-              (assert (integerp nframes))
-              (cond                
-                ((< nframes 0)
-                 (format *trace-output* "~&nframes<0, snd-pcm-recover")
-                 (snd-pcm-recover (mixer-device mixer) nframes 1))
-                ((< nframes nwrite)
-                 (format *trace-output* "~&short write ~D vs ~D (offset ~D)~%"
-                         nframes (- buffer-samples offset) offset)
-                 (incf offset nframes))
-                (t (loop-finish))))
-
-        (incf time buffer-samples)
-        (setf (mixer-current-time mixer) time))
-   ;; Cleanup. After setting the shutdown flag, it is impossible to
-   ;; add additional streamers, so there's no race during the shutdown.
-   (with-mixer-lock (mixer) (setf (mixer-shutdown-flag mixer) t))
-   (dolist (streamer (mixer-stream-list mixer))
-     (streamer-cleanup streamer mixer))
-   (clrhash (mixer-stream-state mixer))
-   (setf (mixer-stream-list mixer) nil)))
-
-(defun create-mixer (&key (rate 44100))
-  "Create a new mixer at the specified sample rate, running in its own thread."
-  #-(or mixalot::use-ao mixalot::use-alsa)
-  (error "Neither mixalot::use-ao nor mixalot::use-alsa existed on *features* when this function was compiled. That is wrong.")
-  (let ((mixer (make-mixer :rate rate)))
-    (bordeaux-threads:make-thread
-     (lambda ()       
-       #+mixalot::use-ao
-       (progn
-         (setf (mixer-device mixer) (open-ao :rate rate))
-         (run-mixer-process mixer))
-       #+mixalot::use-alsa
-       (call-with-pcm rate
-        (lambda (pcm)
-          (setf (mixer-device mixer) pcm)
-          (run-mixer-process mixer))))
-     :name (format nil "Mixer thread ~:D Hz" rate))
-    mixer))
-
-(defun destroy-mixer (mixer)
-  (with-mixer-lock (mixer)
-    (setf (mixer-shutdown-flag mixer) t))
-  (values))
-
 ;;;; Fastish sample manipulation
 
 (declaim (inline stereo-sample sign-extend-16
-                 clamp-sample clamp-sample+ 
+                 clamp-sample clamp-sample+
                  mono->stereo stereo-left stereo-right
                  %stereo-left %stereo-right
                  split-sample
@@ -620,13 +276,13 @@
   (declare (optimize (speed 3))
            (type (unsigned-byte 16) x))
   (let ((c (ash -1 15)))
-    (logxor (+ x c) c)))  
+    (logxor (+ x c) c)))
 
 (defun %stereo-left (sample)
   (declare (optimize (speed 3)) (type stereo-sample sample))
   (ldb (byte 16 0)  sample))
 
-(defun %stereo-right (sample) 
+(defun %stereo-right (sample)
   (declare (optimize (speed 3)) (type stereo-sample sample))
   (ldb (byte 16 16)  sample))
 
@@ -634,7 +290,7 @@
   (declare (optimize (speed 3)) (type stereo-sample sample))
   (sign-extend-16 (%stereo-left  sample)))
 
-(defun stereo-right (sample) 
+(defun stereo-right (sample)
   (declare (optimize (speed 3)) (type stereo-sample sample))
   (sign-extend-16 (%stereo-right sample)))
 
@@ -650,7 +306,7 @@
   (stereo-sample (clamp-sample+ (stereo-left  x) (stereo-left  y))
                  (clamp-sample+ (stereo-right x) (stereo-right y))))
 
-(defun add-stereo-samples (x y) 
+(defun add-stereo-samples (x y)
   "Add two stereo samples, without clipping."
   (declare (optimize (speed 3)) (type stereo-sample x y))
   (logior (logand #xFFFF (+ x y))

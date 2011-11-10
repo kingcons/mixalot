@@ -7,5 +7,8 @@
   :depends-on (:cffi :bordeaux-threads :alexandria)
   :serial t
   :components ((:file "ffi-common")
+               (:file "packages")
+               (:file "streamer")
+               (:file "mixer")
                (:file "mixalot")))
 
