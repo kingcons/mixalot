@@ -9,7 +9,7 @@
    (length :reader streamer-length :initform nil)
    (position :reader streamer-position :initform 0)
    (song :accessor streamer-song :initarg :song)
-   (stopped :accessor streamer-stopped-p :initform nil)
+   (stopped :accessor streamer-stopped :initform nil)
    (filename :initform nil :initarg :filename)
    (seek-to :initform nil))
   (:documentation "YEAHHHHHHH (file streamer)"))
