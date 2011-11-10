@@ -20,6 +20,15 @@
            #:streamer-position
            #:streamer-note-completion
 
+           ;; a bit uncomfortable with this but need it for all the with-slots
+           ;; i.e. in mixalot-mp3, mixalot-vorbis, etc
+           #:handle
+           #:sample-rate
+           #:output-rate
+           #:length
+           #:position
+           #:seek-to
+
            #:mixer
            #:mixer-stream-lock
            #:mixer-stream-list
