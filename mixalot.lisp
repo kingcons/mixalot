@@ -31,6 +31,7 @@
            #:stereo-sample
            #:mono-sample
 
+           #:streamer
            #:streamer-mix-into
            #:streamer-write-into
            #:streamer-cleanup
@@ -53,30 +54,16 @@
            #:mixer-remove-streamer
            #:mixer-remove-all-streamers
            #:create-mixer
-           #:destroy-mixer 
+           #:destroy-mixer
            #:array-index
            #:with-array-pointer
-           #:clamp-sample #:clamp-sample+ 
+           #:clamp-sample #:clamp-sample+
            #:mono->stereo #:stereo-left #:stereo-right
            #:%stereo-left #:%stereo-right
            #:split-sample
            #:mix-stereo-samples #:add-stereo-samples
            #:stereo-incf #:stereo-mixf
-           #:make-test-streamer
-
-           #:vector-streamer
-           #:vector-streamer-mono
-           #:make-vector-streamer-mono
-           #:vector-streamer-interleaved-stereo
-           #:make-vector-streamer-interleaved-stereo
-           #:vector-streamer-joint-stereo
-           #:make-vector-streamer-joint-stereo
-           #:fast-vector-streamer-mono
-           #:make-fast-vector-streamer-mono
-           #:fast-vector-streamer-interleaved-stereo
-           #:make-fast-vector-streamer-interleaved-stereo
-           #:fast-vector-streamer-joint-stereo
-           #:make-fast-vector-streamer-joint-stereo))
+           #:make-test-streamer))
 
 (in-package :mixalot)
 
